@@ -23,32 +23,58 @@ function toJSONAnnotation(ann, endpoint) {
 }
 
 module.exports = function toJsonV1(span) {
-  const trace = span.traceId;
   const res = {
-    traceId: trace.traceId
+    traceId: span.traceId
   };
-  trace._parentId.ifPresent((id) => {
-    res.parentId = id;
-  });
-  res.id = trace.spanId;
+  if (span.parentId) { // instead of writing "parentId": NULL
+    res.parentId = span.parentId;
+  }
+  res.id = span.id;
   res.name = span.name || ''; // undefined is not allowed in v1
 
   // Log timestamp and duration if this tracer started and completed this span.
-  if (!span.shared && span.endTimestamp) {
-    res.timestamp = span.startTimestamp;
-    res.duration = Math.max(span.endTimestamp - span.startTimestamp, 1);
+  if (!span.shared) {
+    res.timestamp = span.timestamp;
+    res.duration = span.duration;
   }
 
   const jsonEndpoint = toJSONEndpoint(span.localEndpoint);
 
-  let addressKey = 'sa'; // TODO: switch to span.kind
-  if (span.annotations.length > 0) { // don't write empty array
+  let beginAnnotation;
+  let endAnnotation;
+  let addressKey;
+  switch(span.kind) {
+    case 'CLIENT':
+      beginAnnotation = span.timestamp ? 'cs' : undefined;
+      endAnnotation = 'cr';
+      addressKey = 'sa';
+      break;
+    case "SERVER":
+      beginAnnotation = span.timestamp ? 'sr' : undefined;
+      endAnnotation = 'ss';
+      addressKey = 'ca';
+      break;
+  }
+
+  if (span.annotations.length > 0 || beginAnnotation) { // don't write empty array
     res.annotations = span.annotations.map((ann) => {
-      if (ann.value === 'sr') {
-        addressKey = 'ca';
-      }
       return toJSONAnnotation(ann, jsonEndpoint);
     });
+  }
+
+  if (beginAnnotation) {
+    res.annotations.push({
+      value: beginAnnotation,
+      timestamp: span.timestamp,
+      jsonEndpoint
+    });
+    if (span.duration) {
+      res.annotations.push({
+        value: endAnnotation,
+        timestamp: span.timestamp + span.duration,
+        jsonEndpoint
+      });
+    }
   }
 
   const keys = Object.keys(span.tags);
@@ -69,7 +95,7 @@ module.exports = function toJsonV1(span) {
     res.binaryAnnotations.push(address);
   }
 
-  if (span.debug) {
+  if (span.debug) { // instead of writing "debug": false
     res.debug = true;
   }
   return JSON.stringify(res);

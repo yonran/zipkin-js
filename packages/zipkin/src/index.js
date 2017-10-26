@@ -17,8 +17,7 @@ const ExplicitContext = require('./explicit-context');
 const Request = require('./request');
 const Instrumentation = require('./instrumentation');
 
-const record = require('./record');
-
+const model = require('./model');
 const toJsonV1 = require('./json-v1');
 
 module.exports = {
@@ -35,6 +34,6 @@ module.exports = {
   sampler,
   Request,
   Instrumentation,
-  record,
+  model,
   toJsonV1
 };

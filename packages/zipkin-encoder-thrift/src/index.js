@@ -56,25 +56,21 @@ function toThriftAddress(key, endpoint) {
 
 function toThriftSpan(span) {
   const res = new thriftTypes.Span();
-  const traceId = span.traceId.traceId;
-
   // thrift fields are i64, but accept hex input. That's why we set via strings.
-  if (traceId.length <= 16) {
-    res.trace_id = traceId;
+  if (span.traceId.length <= 16) {
+    res.trace_id = span.traceId;
   } else {
-    res.trace_id_high = traceId.substr(0, 16);
-    res.trace_id = traceId.substr(traceId.length - 16);
+    res.trace_id_high = span.traceId.substr(0, 16);
+    res.trace_id = span.traceId.substr(span.traceId.length - 16);
   }
-  span.traceId._parentId.ifPresent((id) => {
-    res.parent_id = id;
-  });
-  res.id = span.traceId.spanId;
+  res.parent_id = span.parentId;
+  res.id = span.id;
   res.name = span.name || ''; // undefined is not allowed in v1
 
   // Log timestamp and duration if this tracer started and completed this span.
-  if (!span.shared && span.endTimestamp) {
-    res.timestamp = span.startTimestamp;
-    res.duration = Math.max(span.endTimestamp - span.startTimestamp, 1);
+  if (!span.shared) {
+    res.timestamp = span.timestamp;
+    res.duration = span.duration;
   }
 
   const thriftEndpoint = toThriftEndpoint(span.localEndpoint);

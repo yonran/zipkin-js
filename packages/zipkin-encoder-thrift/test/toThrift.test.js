@@ -1,6 +1,7 @@
 const lolex = require('lolex');
 const toThrift = require('../src');
 const thriftTypes = require('../src/gen-nodejs/zipkinCore_types');
+const {now} = require('../../zipkin/src/time');
 const {
   TFramedTransport,
   TBufferedTransport,
@@ -8,7 +9,7 @@ const {
 } = require('thrift');
 const {
   TraceId,
-  record: {Span, Endpoint},
+  model: {Span, Endpoint},
   option: {Some, None}
 } = require('zipkin');
 
@@ -98,21 +99,22 @@ describe('Thrift v1 Formatting', () => {
   });
 
   it('should transform correctly from Span to Thrift representation', () => {
-    const serverSpan = new Span(new TraceId({
+    const span = new Span(new TraceId({
       traceId: new Some('a'),
       parentId: new Some('b'),
       spanId: 'c',
       sampled: None
     }));
-    serverSpan.setName('GET');
-    serverSpan.setLocalServiceName('PortalService');
-    serverSpan.setLocalIpV4('10.57.50.83');
-    serverSpan.setLocalPort(8080);
-    serverSpan.setShared(true);
-    serverSpan.putTag('warning', 'The cake is a lie');
-    serverSpan.addAnnotation(1, 'sr');
-    serverSpan.addAnnotation(2, 'ss');
-    serverSpan.started = 1468441525803803;
+    span.setName('GET');
+    span.setLocalEndpoint(new Endpoint({
+      serviceName: 'PortalService',
+      ipv4: '10.57.50.83',
+      port: 8080
+    }));
+    span.setShared(true);
+    span.putTag('warning', 'The cake is a lie');
+    span.addAnnotation(1, 'sr');
+    span.addAnnotation(2, 'ss');
 
     const expectedHost = new thriftTypes.Endpoint({
       service_name: 'PortalService',
@@ -144,7 +146,7 @@ describe('Thrift v1 Formatting', () => {
         host: expectedHost,
       })
     ];
-    const serialized = toThrift(serverSpan);
+    const serialized = toThrift(span);
 
     expect(serialized).to.deep.equal(serialize(expected));
   });
@@ -177,34 +179,15 @@ describe('Thrift v1 Formatting', () => {
       sampled: None
     }));
     clientSpan.setName('GET');
-    clientSpan.addAnnotation(Date.now() * 1000, 'cs');
+    clientSpan.setTimestamp(now()); // TODO span.kind
+    clientSpan.addAnnotation(now(), 'cs');
     clock.tick(1.732123);
-    clientSpan.addAnnotation(Date.now() * 1000, 'cr');
+    clientSpan.setDuration(1732);
+    clientSpan.addAnnotation(now(), 'cr');
 
     const spanThrift = deserialize(toThrift(clientSpan));
     expect(spanThrift.timestamp.toNumber()).to.equal(12345678000);
     expect(spanThrift.duration.toNumber()).to.equal(1732); // truncates nanos!
-
-    clock.uninstall();
-  });
-
-  it('should have minimum duration of 1 microsecond', () => {
-    const clock = lolex.install(12345678);
-
-    const clientSpan = new Span(new TraceId({
-      traceId: new Some('a'),
-      parentId: new Some('b'),
-      spanId: 'c',
-      sampled: None
-    }));
-    clientSpan.setName('GET');
-    clientSpan.addAnnotation(Date.now() * 1000, 'cs');
-    clock.tick(0.000123);
-    clientSpan.addAnnotation(Date.now() * 1000, 'cr');
-
-    const spanThrift = deserialize(toThrift(clientSpan));
-    expect(spanThrift.timestamp.toNumber()).to.equal(12345678000);
-    expect(spanThrift.duration.toNumber()).to.equal(1); // rounds up!
 
     clock.uninstall();
   });

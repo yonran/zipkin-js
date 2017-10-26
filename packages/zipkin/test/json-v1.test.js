@@ -54,21 +54,22 @@ describe('JSON v1 Formatting', () => {
   });
 
   it('should transform correctly from Span to JSON representation', () => {
-    const serverSpan = new Span(new TraceId({
+    const span = new Span(new TraceId({
       traceId: new Some('a'),
       parentId: new Some('b'),
       spanId: 'c',
       sampled: None
     }));
-    serverSpan.setName('GET');
-    serverSpan.setLocalServiceName('PortalService');
-    serverSpan.setLocalIpV4('10.57.50.83');
-    serverSpan.setLocalPort(8080);
-    serverSpan.setShared(true);
-    serverSpan.putTag('warning', 'The cake is a lie');
-    serverSpan.addAnnotation(1, 'sr');
-    serverSpan.addAnnotation(2, 'ss');
-    serverSpan.started = 1468441525803803;
+    span.setName('GET');
+    span.setLocalEndpoint(new Endpoint({
+      serviceName: 'PortalService',
+      ipv4: '10.57.50.83',
+      port: 8080
+    }));
+    span.setShared(true);
+    span.putTag('warning', 'The cake is a lie');
+    span.addAnnotation(1, 'sr');
+    span.addAnnotation(2, 'ss');
 
     const expected = {
       traceId: 'a',
@@ -108,7 +109,7 @@ describe('JSON v1 Formatting', () => {
       ]
     };
 
-    const spanJson = JSON.parse(toJsonV1(serverSpan));
+    const spanJson = JSON.parse(toJsonV1(span));
     expect(spanJson.traceId).to.equal(expected.traceId);
     expect(spanJson.name).to.equal(expected.name);
     expect(spanJson.id).to.equal(expected.id);
@@ -145,33 +146,14 @@ describe('JSON v1 Formatting', () => {
       sampled: None
     }));
     clientSpan.setName('GET');
+    clientSpan.setTimestamp(now()); // TODO span.kind
     clientSpan.addAnnotation(now(), 'cs');
     clock.tick(1.732123);
+    clientSpan.setDuration(1732);
     clientSpan.addAnnotation(now(), 'cr');
 
     expect(toJsonV1(clientSpan)).to.contain(
       '"timestamp":12345678000,"duration":1732,' // truncates nanos
-    );
-
-    clock.uninstall();
-  });
-
-  it('should have minimum duration of 1 microsecond', () => {
-    const clock = lolex.install(12345678);
-
-    const clientSpan = new Span(new TraceId({
-      traceId: new Some('a'),
-      parentId: new Some('b'),
-      spanId: 'c',
-      sampled: None
-    }));
-    clientSpan.setName('GET');
-    clientSpan.addAnnotation(now(), 'cs');
-    clock.tick(0.000123);
-    clientSpan.addAnnotation(now(), 'cr');
-
-    expect(toJsonV1(clientSpan)).to.contain(
-      '"timestamp":12345678000,"duration":1,' // rounds up!
     );
 
     clock.uninstall();
@@ -185,6 +167,7 @@ describe('JSON v1 Formatting', () => {
       sampled: None
     }));
     clientSpan.setName('GET');
+    clientSpan.setKind('CLIENT');
     clientSpan.setRemoteEndpoint(new Endpoint({
       serviceName: 'there',
       ipv4: '10.57.50.84',
