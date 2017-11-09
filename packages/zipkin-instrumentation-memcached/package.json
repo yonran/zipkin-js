@@ -12,11 +12,11 @@
   "license": "Apache-2.0",
   "repository": "https://github.com/openzipkin/zipkin-js",
   "peerDependencies": {
+    "memcached": "^2.2.2",
     "zipkin": "^0.10.1"
   },
   "devDependencies": {
     "babel-cli": "^6.23.0",
-    "memcached": "^2.2.2",
     "mocha": "^3.2.0"
   }
 }
