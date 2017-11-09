@@ -17,10 +17,12 @@
     "scribe": "0.0.9",
     "zipkin-encoder-thrift": "^0.10.1"
   },
+  "peerDependencies": {
+    "zipkin": "^0.10.1"
+  },
   "devDependencies": {
     "babel-cli": "^6.23.0",
     "mocha": "^3.2.0",
-    "thrift": "^0.10.0",
-    "zipkin": "^0.10.1"
+    "thrift": "^0.10.0"
   }
 }
