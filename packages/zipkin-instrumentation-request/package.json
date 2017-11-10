@@ -3,6 +3,7 @@
   "version": "0.10.1",
   "description": "Instrumentation for request with Zipkin.js",
   "main": "lib/index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "babel src -d lib",
     "test": "mocha --require ../../test/helper.js",
